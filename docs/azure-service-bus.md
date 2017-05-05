@@ -2,6 +2,32 @@
 
 [Azure Service Bus](https://azure.microsoft.com/en-us/services/service-bus/) keep apps and devices connected across private and public clouds. This broker currently publishes a single service and plan for provisioning Azure Service Bus Service.
 
+## Behaviors
+
+### Provision
+  
+  1. Create a Namespace.
+  
+### Provision-Poll
+  
+  1. Check whether creating the Namespace succeeds or not.
+  
+### Bind
+
+  1. Collect credentials.
+
+### Unbind
+
+  Do nothing.
+  
+### Deprovision
+
+  1. Delete the Namespace.
+
+### Deprovision-Poll
+
+  1. Check whether deleting the Namespace succeeds or not.
+  
 ## Create an Azure service bus service
 
 1. Get the service name and plans
@@ -14,52 +40,44 @@
 
   ```
   service                       plans                     description
-  azureservicebus               default                   Azure Service Bus Service
+  azure-servicebus              standard                  Azure Service Bus Service
   ```
 
   If you can not find the service name, please use the following command to make the plans public.
 
   ```
-  cf enable-service-access azureservicebus
+  cf enable-service-access azure-servicebus
   ```
 
 2. Create a service instance
 
-  ```
-  cf create-service azureservicebus $service_plan $service_instance_name
-  ```
-
-  For example:
+  Configuration parameters are passed in a valid JSON object containing configuration parameters, provided either in-line or in a file. If these parameters are not provided, the broker will create the resources according to [Naming Conventions](#naming-conventions).
 
   ```
-  cf create-service azureservicebus default myservicebus
-  ```
-
-  Additional configuration parameters are supported with the provision request. These parameters are passed in a valid JSON object containing configuration parameters, provided either in-line or in a file. If these parameters are not provided, the broker will create the resources according to [Naming Conventions](#naming-conventions).
-
-  ```
-  cf create-service azureservicebus $service_plan $service_instance_name -c $path_to_parameters
+  cf create-service azure-servicebus $service_plan $service_instance_name -c $path_to_parameters
   ```
 
   Supported configuration parameters:
   ```
   {
-    "resource_group_name": "<resource-group-name>",
-    "namespace_name": "<namespace-name>",
-    "location": "<location>",
-    "type": "<type>",
-    "messaging_tier": "<messaging-tier>"
+    "resource_group_name": "<resource-group-name>", // [Required] Only allow up to 90 characters
+    "namespace_name": "<namespace-name>", // [Required] Between 6 and 50 characters long
+    "location": "<location>",             // [Required] e.g. eastasia, eastus2, westus, etc. You can use azure cli command 'azure location list' to list all locations.
+    "type": "<type>",                     // [Required] Possible values are `Messaging`, `EventHub` and `NotificationHub`
+    "messaging_tier": "<messaging-tier>"  // [Required] Possible values are `Basic`, `Standard` and `Premium` for type `Messaging`, `Basic` and `Standard` for type `EventHub`, `Standard` for type `NotificationHub`.
   }
   ```
 
   * **type**: Possible values are `Messaging`, `EventHub` and `NotificationHub`.
-  * **messaging-tier**: Possible values are `Standard`.
+  * **messaging-tier**: Possible values are `Basic`, `Standard` and `Premium` for type `Messaging`, `Basic` and `Standard` for type `EventHub`, `Standard` for type `NotificationHub`.
 
   For example:
 
   ```
-  cf create-service azureservicebus default myservicebus -c /tmp/config.json
+  cf create-service azure-servicebus standard myservicebus -c examples/servicebus-example-config.json
   ```
+
+  The contents of `examples/servicebus-example-config.json`:
 
   ```
   {
@@ -70,6 +88,8 @@
     "messaging_tier": "Standard"
   }
   ```
+
+  >**NOTE:** Please remove the comments in the JSON file before you use it.
 
 3. Check the operation status of creating the service instance
 
@@ -142,13 +162,3 @@
   ```
   cf delete-service myservicebus -f
   ```
-
-<a name="naming-conventions" />
-## Naming Conventions
-
-The following names are used and can be customized with a prefix:
-
-Resource         | Name is based on     | Custom Prefix Environment Variable  | Default Prefix    | Example Name  
------------------|----------------------|-------------------------------------|-------------------|---------------
-Azure Resource Group | service instance ID | RESOURCE_GROUP_NAME_PREFIX | cloud-foundry- | cloud-foundry-2eac2d52-bfc9-4d0f-af28-c02187689d72
-Azure Namespace | service instance ID | NAMESPACE_NAME_PREFIX | cf | cf2eac2d52-bfc9-4d0f-af28-c02187689d72

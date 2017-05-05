@@ -2,6 +2,32 @@
 
 [Azure Redis Cache](https://azure.microsoft.com/en-us/services/cache/) is based on the popular open-source Redis cache. It gives you access to a secure, dedicated Redis cache, managed by Microsoft and accessible from any application within Azure. This broker currently publishes a single service and plan for provisioning Azure Redis Cache.
 
+## Behaviors
+
+### Provision
+  
+  1. Create a Redis Cache.
+  
+### Provision-Poll
+  
+  1. Check whether creating the Redis Cache succeeds or not.
+  
+### Bind
+
+  1. Collect credentials.
+
+### Unbind
+
+  Do nothing.
+  
+### Deprovision
+
+  1. Delete the Redis Cache.
+
+### Deprovision-Poll
+
+  1. Check whether deleting the Redis Cache succeeds or not.
+  
 ## Create an Azure Redis Cache service
 
 1. Get the service name and plans
@@ -13,14 +39,14 @@
   Sample output:
 
   ```
-  service                       plans                     description
-  RedisCacheService             basic, standard, premium  Redis Cache Service
+  service                       plans                        description
+  azure-rediscache              basic*, standard*, premium*  Azure Redis Cache Service
   ```
 
   If you can not find the service name, please use the following command to make the plans public.
 
   ```
-  cf enable-service-access RedisCacheService
+  cf enable-service-access azure-rediscache
   ```
 
 2. Create a service instance
@@ -28,20 +54,19 @@
   Configuration parameters are supported with the provision request. These parameters are passed in a valid JSON object containing configuration parameters, provided either in-line or in a file.
 
   ```
-  cf create-service RedisCacheService $service_plan $service_instance_name -c $path_to_parameters
+  cf create-service azure-rediscache $service_plan $service_instance_name -c $path_to_parameters
   ```
 
   Supported configuration parameters:
 
   ```
   {
-    "resourceGroup": "<resource-group-name>",
-    "cacheName": "<cache-name>",
+    "resourceGroup": "<resource-group-name>", // [Required] Unique. Only allow up to 90 characters
+    "cacheName": "<cache-name>",              // [Required] Unique. Must be between 3 and 63 characters long. Can only contain numbers, letters, and the - character. The cache name cannot start or end with the - character, and consecutive - characters are not valid.
     "parameters": {
-      "location": "<location>",
-      "redisVersion": "<redis-version>",
+      "location": "<location>",               // [Required] e.g. eastasia, eastus2, westus, etc. You can use azure cli command 'azure location list' to list all locations.
       "enableNonSslPort": true | false,
-      "sku": {
+      "sku": {                                // [Required] EXAMPLE: Basic C 0 for cache size 250MB, low network performance and 256 client connections. See more skus: https://azure.microsoft.com/en-us/pricing/details/cache/
         "name": "<sku-name>",
         "family": "<sku-family>",
         "capacity": <capacity>
@@ -53,16 +78,17 @@
   For example:
 
   ```
-  cf create-service RedisCacheService basic myrediscache -c /tmp/config.json
+  cf create-service azure-rediscache basic myrediscache -c examples/rediscache-example-config.json
   ```
+
+  The contents of `examples/rediscache-example-config.json`:
 
   ```
   {
     "resourceGroup": "redisResourceGroup",
-    "cacheName": "C0CacheE",
+    "cacheName": "mycache",
     "parameters": {
       "location": "eastus",
-      "redisVersion": "3.0",
       "enableNonSslPort": false,
       "sku": {
         "name": "Basic",
@@ -72,6 +98,8 @@
     }
   }
   ```
+  
+  >**NOTE:** Please remove the comments in the JSON file before you use it.
 
 3. Check the operation status of creating the service instance
 

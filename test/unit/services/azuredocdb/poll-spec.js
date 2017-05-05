@@ -2,80 +2,157 @@
 /* jshint newcap: false */
 /* global describe, before, it */
 
-var _ = require('underscore');
-var logule = require('logule');
 var should = require('should');
 var sinon = require('sinon');
 var cmdPoll = require('../../../../lib/services/azuredocdb/cmd-poll');
+var azure = require('../helpers').azure;
 var docDbClient = require('../../../../lib/services/azuredocdb/client');
+var msRestRequest = require('../../../../lib/common/msRestRequest');
+var request = require('request');
 
-var log = logule.init(module, 'DocumentDb-Tests');
+var mockingHelper = require('../mockingHelper');
+mockingHelper.backup();
+docDbClient.initialize(azure);
 
-var azure = {
-    environment: 'AzureCloud',
-    subscription_id: '743fxxxx-83xx-46xx-xx2d-xxxxb953952d',
-    tenant_id: '72xxxxbf-8xxx-xxxf-9xxb-2d7cxxxxdb47',
-    client_id: 'd8xxxx18-xx4a-4xx9-89xx-9be0bfecxxxx',
-    client_secret: '2/DzYYYYYYYYYYsAvXXXXXXXXXXQ0EL7WPxEXX115Go=',
-};
-
-describe('DocumentDb - Poll - PreConditions', function() {
-    var validParams;
+describe('DocumentDb - Provision-Poll - Execution', function() {
+  var validParams;
         
-    before(function() {
-       
-        validParams = {
-            instance_id : '2e201389-35ff-4b89-9148-5c08c7325dc8',
-            parameters : {
-                resourceGroup: 'docDbResourceGroup',
-                docDbName: 'goliveDocDb'
-            },
-            provisioning_result: '{\"id\":\"goliveDocDb\"}'
-        };
-    });
+  before(function() {
+    validParams = {
+      instance_id: '2e201389-35ff-4b89-9148-5c08c7325dc8',
+      provisioning_result: {
+        'resourceGroupName': 'myRG',
+        'docDbAccountName': 'myaccount'
+      },
+      last_operation: 'provision'
+    };
     
-    describe('Poll should succeed if ...', function() {
-        it('all validators succeed', function(done) {
-            var cp = new cmdPoll(log, validParams);
-            (cp.allValidatorsSucceed()).should.equal(true);
-            done();        
-        });
-        
+    sinon.stub(request, 'post').yields(null, {statusCode: 201});
+    
+    msRestRequest.GET = sinon.stub();
+    msRestRequest.GET.withArgs('https://management.azure.com//subscriptions/55555555-4444-3333-2222-111111111111/resourcegroups/myRG/providers/Microsoft.DocumentDB/databaseAccounts/myaccount')
+      .yields(null, {statusCode: 200}, '{"properties":{"provisioningState":"Succeeded","documentEndpoint":"fakeendpoint"}}');
+    
+    msRestRequest.POST = sinon.stub();
+    msRestRequest.POST.withArgs('https://management.azure.com//subscriptions/55555555-4444-3333-2222-111111111111/resourcegroups/myRG/providers/Microsoft.DocumentDB/databaseAccounts/myaccount/listKeys')
+      .yields(null, {statusCode: 200}, '{"primaryMasterKey":"fake-master-key"}');
+  });
+    
+  after(function() {
+    request.post.restore();
+    mockingHelper.restore();
+  });
+    
+  describe('Poll operation outcomes should be...', function() {
+    it('should output state = succeeded, if docdb account is created', function(done) {
+      var cp = new cmdPoll(validParams);
+      cp.poll(docDbClient, function(err, reply) {
+        should.not.exist(err);
+        reply.value.state.should.equal('succeeded');
+        done();
+      });
     });
+  });
 });
 
-describe('DocumentDb - Poll - Execution - docDb that exists', function() {
-    var validParams;
+describe('DocumentDb - Provision-Poll - Execution', function() {
+  var validParams;
         
-    before(function() {
-        validParams = {
-            instance_id : '2e201389-35ff-4b89-9148-5c08c7325dc8',
-            parameters : {
-                resourceGroup: 'docDbResourceGroup',
-                docDbName: 'goliveDocDb'
-            },
-            provisioning_result: '{\"id\":\"goliveDocDb\", \"_self\":\"dbs/a00AAA==/\"}',
-            last_operation : "provision",
-        };
-    });
+  before(function() {
+    validParams = {
+      instance_id: '2e201389-35ff-4b89-9148-5c08c7325dc8',
+      provisioning_result: { 'resourceGroupName': 'myRG', 'docDbAccountName': 'myaccount' },
+      last_operation: 'provision'
+    };
     
-    after(function() {
-        docDbClient.poll.restore();
-    });
+    sinon.stub(request, 'post').yields(null, {statusCode: 201});
     
-    describe('Poll operation outcomes should be...', function() {
-        it('should output state = succeeded', function(done) {
+    msRestRequest.GET = sinon.stub();
+    msRestRequest.GET.withArgs('https://management.azure.com//subscriptions/55555555-4444-3333-2222-111111111111/resourcegroups/myRG/providers/Microsoft.DocumentDB/databaseAccounts/myaccount')
+      .yields(null, {statusCode: 200}, '{"properties":{"provisioningState":"Creating"}}');
+      
+    msRestRequest.POST = sinon.stub();
+    msRestRequest.POST.withArgs('https://management.azure.com//subscriptions/55555555-4444-3333-2222-111111111111/resourcegroups/myRG/providers/Microsoft.DocumentDB/databaseAccounts/myaccount/listKeys')
+      .yields(null, {statusCode: 200}, '{"primaryMasterKey":"fake-master-key"}');
+  });
+    
+  after(function() {
+    request.post.restore();
+    mockingHelper.restore();
+  });
+    
+  describe('Poll operation outcomes should be...', function() {
+    
+    it('should output state = in progress, if docdb account is creating', function(done) {
+      var cp = new cmdPoll(validParams);
+      cp.poll(docDbClient, function(err, reply) {
+        should.not.exist(err);
+        reply.value.state.should.equal('in progress');
+        done();
+      });
+    });
+  });
+});
 
-            var cp = new cmdPoll(log, validParams);
-            (cp.allValidatorsSucceed()).should.equal(true);
-            
-            sinon.stub(docDbClient, 'poll').yields(null, {_self : 'dbs/a00AAA==/'});
-            cp.poll(docDbClient, function(err, reply) {
-                should.not.exist(err);
-                reply.value.state.should.equal('succeeded');
-                done();        
-            });
-            
-        });
+describe('DocumentDb - Deprovision-Poll - Execution', function() {
+  var validParams;
+        
+  before(function() {
+    validParams = {
+      instance_id: '2e201389-35ff-4b89-9148-5c08c7325dc8',
+      provisioning_result: { 'resourceGroupName': 'myRG', 'docDbAccountName': 'myaccount' },
+      last_operation: 'deprovision'
+    };
+    
+    msRestRequest.GET = sinon.stub();
+    msRestRequest.GET.withArgs('https://management.azure.com//subscriptions/55555555-4444-3333-2222-111111111111/resourcegroups/myRG/providers/Microsoft.DocumentDB/databaseAccounts/myaccount')
+      .yields(null, {statusCode: 200}, '{"properties":{"provisioningState":"Deleting"}}');
+  });
+  
+  after(function() {
+    mockingHelper.restore();
+  });
+  
+  describe('Poll operation outcomes should be...', function() {
+    it('should output state = in progress, if docdb account is being deleting', function(done) {
+      var cp = new cmdPoll(validParams);
+      cp.poll(docDbClient, function(err, reply) {
+        should.not.exist(err);
+        reply.value.state.should.equal('in progress');
+        done();
+      });
     });
+  });
+});
+
+describe('DocumentDb - Deprovision-Poll - Execution', function() {
+  var validParams;
+        
+  before(function() {
+    validParams = {
+      instance_id: '2e201389-35ff-4b89-9148-5c08c7325dc8',
+      provisioning_result: { 'resourceGroupName': 'myRG', 'docDbAccountName': 'myaccount' },
+      last_operation: 'deprovision'
+    };
+    
+    msRestRequest.GET = sinon.stub();
+    msRestRequest.GET.withArgs('https://management.azure.com//subscriptions/55555555-4444-3333-2222-111111111111/resourcegroups/myRG/providers/Microsoft.DocumentDB/databaseAccounts/myaccount')
+      .yields(null, {statusCode: 404});
+  });
+  
+  after(function() {
+    mockingHelper.restore();
+  });
+  
+  describe('Poll operation outcomes should be...', function() {
+    
+    it('should output state = succeeded, if docdb account is deleted', function(done) {
+      var cp = new cmdPoll(validParams);
+      cp.poll(docDbClient, function(err, reply) {
+        should.not.exist(err);
+        reply.value.state.should.equal('succeeded');
+        done();
+      });
+    });
+  });
 });

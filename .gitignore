@@ -26,8 +26,20 @@ build/Release
 # Dependency directory
 node_modules
 
-# Optional npm cache directory
+# Cache
 .npm
+.eslintcache
 
 # Optional REPL history
 .node_repl_history
+
+# Pivotal Product tiles
+pcf-tile/product
+pcf-tile/release
+pcf-tile/resources/meta-azure-service-broker.zip
+
+# IDE
+.vscode/
+
+# Credentials
+.env

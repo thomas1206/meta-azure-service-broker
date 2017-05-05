@@ -4,10 +4,35 @@ applications:
   buildpack: https://github.com/cloudfoundry/nodejs-buildpack
   instances: 1
   env:
-    environment: REPLACE-ME
-    subscription_id: REPLACE-ME
-    tenant_id: REPLACE-ME
-    client_id: REPLACE-ME
-    client_secret: REPLACE-ME
-    docDb_hostEndPoint: REPLACE-ME
-    docDb_masterKey: REPLACE-ME 
+    ENVIRONMENT: REPLACE-ME
+    SUBSCRIPTION_ID: REPLACE-ME
+    TENANT_ID: REPLACE-ME
+    CLIENT_ID: REPLACE-ME
+    CLIENT_SECRET: REPLACE-ME
+    SECURITY_USER_NAME: REPLACE-ME
+    SECURITY_USER_PASSWORD: REPLACE-ME
+    AZURE_BROKER_DATABASE_PROVIDER: REPLACE-ME
+    AZURE_BROKER_DATABASE_SERVER: REPLACE-ME
+    AZURE_BROKER_DATABASE_USER: REPLACE-ME
+    AZURE_BROKER_DATABASE_PASSWORD: REPLACE-ME
+    AZURE_BROKER_DATABASE_NAME: REPLACE-ME
+    AZURE_BROKER_DATABASE_ENCRYPTION_KEY: REPLACE-ME
+    
+    AZURE_SQLDB_ALLOW_TO_CREATE_SQL_SERVER: true | false
+    AZURE_SQLDB_ENABLE_TRANSPARENT_DATA_ENCRYPTION: true | false
+    AZURE_SQLDB_SQL_SERVER_POOL: '[
+      {
+        "resourceGroup": "REPLACE-ME",
+        "location": "REPLACE-ME",
+        "sqlServerName": "REPLACE-ME",
+        "administratorLogin": "REPLACE-ME",
+        "administratorLoginPassword": "REPLACE-ME"
+      },
+      {
+        "resourceGroup": "REPLACE-ME",
+        "location": "REPLACE-ME",
+        "sqlServerName": "REPLACE-ME",
+        "administratorLogin": "REPLACE-ME",
+        "administratorLoginPassword": "REPLACE-ME"
+      }
+    ]'

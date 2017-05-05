@@ -7,82 +7,122 @@
 /* jshint newcap: false */
 /* global describe, before, it */
 
-var _ = require('underscore');
-var logule = require('logule');
 var should = require('should');
 var sinon = require('sinon');
 var cmdPoll = require('../../../../lib/services/azurerediscache/cmd-poll');
 var redisClient = require('../../../../lib/services/azurerediscache/client');
-
-var log = logule.init(module, 'RedisCache-Mocha');
-
-var azure = {
-    environment: 'AzureCloud',
-    subscription_id: '743fxxxx-83xx-46xx-xx2d-xxxxb953952d',
-    tenant_id: '72xxxxbf-8xxx-xxxf-9xxb-2d7cxxxxdb47',
-    client_id: 'd8xxxx18-xx4a-4xx9-89xx-9be0bfecxxxx',
-    client_secret: '2/DzYYYYYYYYYYsAvXXXXXXXXXXQ0EL7WPxEXX115Go=',
-};
+var azure = require('../helpers').azure;
+var msRestRequest = require('../../../../lib/common/msRestRequest');
   
-describe('RedisCache - Poll - PreConditions', function() {
-    var validParams;
-        
-    before(function() {
-       
-        validParams = {
-            instance_id : 'b259c5e0-7442-46bc-970c-9912613077dd',
-            parameters : {
-                resourceGroup: 'redisResourceGroup',
-                cacheName: 'C0CacheNC'
-            },
-            provisioning_result: '{\"provisioningState\":\"Creating\"}',
-            last_operation : "provision",
-        };
-        validParams.azure = azure;
-    });
-    
-    describe('Poll should succeed if ...', function() {
-        it('all validators succeed', function(done) {
-            var cp = new cmdPoll(log, validParams);
-            (cp.allValidatorsSucceed()).should.equal(true);
-            done();        
-        });
-        
-    });
-});
-
-describe('RedisCache - Poll - Execution - Cache that exists', function() {
+var mockingHelper = require('../mockingHelper');
+mockingHelper.backup();
+redisClient.initialize(azure);
+  
+describe('RedisCache - Provision-Poll - Execution - Cache that exists', function() {
     var validParams;
         
     before(function() {
         validParams = {
-            instance_id : 'b259c5e0-7442-46bc-970c-9912613077dd',
-            parameters : {
+            instance_id: 'b259c5e0-7442-46bc-970c-9912613077dd',
+            parameters: {
                 resourceGroup: 'redisResourceGroup',
                 cacheName: 'C0CacheNC'
             },
-            provisioning_result: '{\"provisioningState\":\"Creating\"}'
+            provisioning_result: {'provisioningState':'Creating'},
+            last_operation: 'provision',
+            azure: azure
         };
-        validParams.azure = azure;
+        
+        msRestRequest.GET = sinon.stub();
+        msRestRequest.GET.withArgs('https://management.azure.com//subscriptions/55555555-4444-3333-2222-111111111111/resourceGroups/redisResourceGroup/providers/Microsoft.Cache/Redis/C0CacheNC')
+          .yields(null, {statusCode: 200}, '{"properties":{"provisioningState" : "Succeeded"}}');
     });
     
     after(function() {
-        redisClient.poll.restore();
+        mockingHelper.restore();
     });
     
     describe('Poll operation outcomes should be...', function() {
         it('should output provisioningState = Succeeded', function(done) {
-
-            var cp = new cmdPoll(log, validParams);
-            (cp.allValidatorsSucceed()).should.equal(true);
-            
-            sinon.stub(redisClient, 'poll').yields(null, {provisioningState : 'Succeeded'});
+            var cp = new cmdPoll(validParams);
             cp.poll(redisClient, function(err, result) {
                 should.not.exist(err);
                 result.statusCode.should.equal(200);
-                done();        
+                done();
             });
             
+        });
+    });
+});
+
+describe('RedisCache - Provision-Poll - Execution - Cache is creating', function() {
+    var validParams;
+        
+    before(function() {
+        validParams = {
+            instance_id : 'b259c5e0-7442-46bc-970c-9912613077dd',
+            parameters : {
+                resourceGroup: 'redisResourceGroup',
+                cacheName: 'C0CacheNC'
+            },
+            provisioning_result: {'provisioningState':'Creating'},
+            last_operation : 'provision',
+            azure: azure
+        };
+        msRestRequest.GET = sinon.stub();
+        msRestRequest.GET.withArgs('https://management.azure.com//subscriptions/55555555-4444-3333-2222-111111111111/resourceGroups/redisResourceGroup/providers/Microsoft.Cache/Redis/C0CacheNC')
+          .yields(null, {statusCode: 200}, '{"properties":{"provisioningState" : "Creating"}}');
+    });
+    
+    after(function() {
+        mockingHelper.restore();
+    });
+    
+    describe('Poll operation outcomes should be...', function() {
+        it('should output provisioningState = Creating', function(done) {
+            var cp = new cmdPoll(validParams);
+            cp.poll(redisClient, function(err, result) {
+                should.not.exist(err);
+                result.statusCode.should.equal(200);
+                done();
+            });
+        });
+    });
+});
+
+describe('RedisCache - Deprovision-Poll - Execution - Cache that unexists', function() {
+    var validParams;
+        
+    before(function() {
+        validParams = {
+            instance_id : 'b259c5e0-7442-46bc-970c-9912613077dd',
+            parameters : {
+                resourceGroup: 'redisResourceGroup',
+                cacheName: 'C0CacheNC'
+            },
+            provisioning_result: {'provisioningState':'Creating'},
+            last_operation : 'deprovision',
+            azure: azure
+        };
+        var res = {};
+        res.statusCode = 404;
+        msRestRequest.GET = sinon.stub();
+        msRestRequest.GET.withArgs('https://management.azure.com//subscriptions/55555555-4444-3333-2222-111111111111/resourceGroups/redisResourceGroup/providers/Microsoft.Cache/Redis/C0CacheNC')
+          .yields(null, res);
+    });
+    
+    after(function() {
+        mockingHelper.restore();
+    });
+    
+    describe('Poll operation outcomes should be...', function() {
+        it('should output provisioningState = Succeeded', function(done) {
+            var cp = new cmdPoll(validParams);
+            cp.poll(redisClient, function(err, result) {
+                should.not.exist(err);
+                result.statusCode.should.equal(200);
+                done();
+            });
         });
     });
 });

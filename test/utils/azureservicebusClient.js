@@ -1,13 +1,16 @@
+var common = require('../../lib/common');
 var azure = require('azure');
 var async = require('async');
-var logule = require('logule');
 var statusCode = require('./statusCode');
+var supportedEnvironments = require('./supportedEnvironments');
 
-module.exports = function() {
+module.exports = function(environment) {
   var clientName = 'azureservicebusClient';
-  var log = logule.init(module, clientName);
-  var validate = function(credential, next) {
-    var connectionString = 'Endpoint=sb://' + credential.namespace_name + '.servicebus.windows.net/;SharedAccessKeyName=' + credential.shared_access_key_name + ';SharedAccessKey=' + credential.shared_access_key_value; 
+  common.getLogger(clientName, clientName);
+  var log = require('winston').loggers.get(clientName);
+  
+  this.validateCredential = function(credential, next) {
+    var connectionString = 'Endpoint=sb://' + credential['namespace_name'] + supportedEnvironments[environment]['serviceBusEndpointSuffix'] + '/;SharedAccessKeyName=' + credential['shared_access_key_name'] + ';SharedAccessKey=' + credential['shared_access_key_value']; 
     log.debug('connectionString: ' + connectionString);
     var queueName = 'azureservicebus' + Math.floor(Math.random()*1000);
     var message = {body: 'servicebus test message'};
@@ -21,7 +24,7 @@ module.exports = function() {
               callback(null, statusCode.PASS);
             } else {
               log.error('Queue ' + queueName + ' not created. Error: ' + error);
-              callback(error)
+              callback(error);
             }
           });
         },
@@ -40,10 +43,11 @@ module.exports = function() {
           serviceBusService.receiveQueueMessage(queueName, function(error, receivedMessage){
             if(!error){
               if(receivedMessage.body == 'servicebus test message') {
+                log.debug('message received');
                 callback(null, statusCode.PASS);
               } else {
                 log.error('Message does not match. Sent: ' + message + ' Received: ' + receivedMessage);
-                callback(new Error('recive message does not match the message sent'), statusCode.FAIL)
+                callback(new Error('recive message does not match the message sent'), statusCode.FAIL);
               }
             } else {
               log.error('Failed to receive message. Error: ' + receivedMessage);
@@ -53,22 +57,15 @@ module.exports = function() {
         }
       ],
       function(err, result) {
-        if(err || !result) {
+        if (err || result != statusCode.PASS) {
           next(statusCode.FAIL);
         } else {
-          next(statusCode.PASS)
+          next(statusCode.PASS);
         }
       });
     } catch (ex) {
       log.error('Got exception: ' + ex);
       next(statusCode.FAIL);
     }   
-  }
-
-  this.validateCredential = function(credential, next) {
-    var sleepTime = 1; //if sleep for 30 seconds(30000), the test will pass
-    setTimeout(function(){
-      validate(credential, next)
-    }, sleepTime);
-  }
-}
+  };
+};

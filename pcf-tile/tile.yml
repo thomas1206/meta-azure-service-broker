@@ -1,0 +1,154 @@
+---
+# The high-level description of your tile.
+# Replace these properties with real values.
+#
+name: azure-service-broker
+icon_file: resources/icon.png
+label: Microsoft Azure Service Broker
+description: A service broker for Microsoft Azure services
+
+# Global defaults (all optional)
+#
+org: system                                 # Name of org to create for your apps
+space: azure-service-broker-space # Name of space to create for your apps
+apply_open_security_group: true             # Apply open security group, default: false
+allow_paid_service_plans: true              # Allow paid service plans, default: false
+
+# Specify the packages to be included in your tile.
+# The format of the section to include depends on the type
+# of package you are describing. For fragments of each type
+# that you can copy & paste, see:
+#
+# https://github.com/cf-platform-eng/tile-generator/blob/master/README.md
+#
+packages:
+- name: azure-service-broker
+  type: app-broker
+  enable_global_access_to_plans: true
+  pre_deploy: |
+    cf delete-org -f azure-service-broker-org
+    cf delete-quota -f azure-service-broker-org-quota
+  manifest:
+    path: resources/meta-azure-service-broker.zip
+    buildpack: https://github.com/cloudfoundry/nodejs-buildpack
+    instances: 1
+
+# Include stemcell criteria if you don't want to accept the default.
+# Since this stemcell is only used to run pre and post errands, we
+# strongly recommend you leave this alone so that your tile always
+# runs with the latest stemcell.
+#
+# stemcell_criteria:
+#   os: ubuntu-trusty
+#   requires_cpi: false
+#   version: '3062'
+
+# Add properties you want to pass to your applications.
+# Properties specified here will not be configurable by the user.
+#
+# properties:
+# - name: example_property
+#   type: string
+#   default: specify a value
+#   label: Label for the field on the GUI
+#   description: Longer description of the field's purpose
+
+# Uncomment this section if you want to display forms with configurable
+# properties in Ops Manager. These properties will be passed to your
+# applications as environment variables. You can also refer to them
+# elsewhere in this template by using:
+#     (( .properties.<property-name> ))
+#
+forms:
+- name: azure-config-form
+  label: Azure Config
+  description: Configuration properties for Azure
+  properties:
+  - name: environment
+    type: dropdown_select
+    label: Azure Environment
+    configurable: true
+    options:
+    - name: AzureCloud
+      label: Azure Cloud
+      default: true
+    - name: AzureChinaCloud
+      label: Azure China Cloud
+  - name: subscription_id
+    type: string
+    label: Subscription Id
+  - name: tenant_id
+    type: string
+    label: Tenant Id
+  - name: client_id
+    type: string
+    label: Client Id
+  - name: client_secret
+    type: secret
+    label: Client Secret
+- name: broker-config-form
+  label: Broker Config
+  properties:
+  - name: azure_broker_database_provider
+    type: dropdown_select
+    label: Database Provider
+    configurable: true
+    options:
+    - name: sqlserver
+      label: SQL Database
+      default: true
+  - name: azure_broker_database_server
+    type: string
+    label: Database Server
+  - name: azure_broker_database_user
+    type: string
+    label: Database Username
+  - name: azure_broker_database_password
+    type: secret
+    label: Database Password
+  - name: azure_broker_database_name
+    type: string
+    label: Database Name
+  - name: azure_broker_database_encryption_key
+    type: secret
+    label: Database Encryption Key (32 characters)
+- name: sqldb-config-form
+  label: SQL Database Config
+  properties:
+  - name: azure_sqldb_allow_to_create_sql_server
+    type: boolean
+    configurable: true
+    default: true
+    label: Allow to Create Sql Server
+  - name: azure_sqldb_sql_server_pool
+    type: collection
+    configurable: true
+    optional: true
+    property_blueprints:
+      - name: sqlServerName
+        type: string
+        label: SQL Server Name
+      - name: administratorLogin
+        type: string
+        label: SQL Server Administrator Login
+      - name: administratorLoginPassword
+        type: secret
+        label: SQL Server Administrator Login Password
+    label: Sql Server Pool
+    
+# Add any dependencies your tile has on other installed products.
+# This is often appropriate when using automatic service provisioning
+# for any of your packages above, with services provided by other
+# products.
+#
+# requires_product_versions:
+# - name: p-mysql
+#   version: '~> 1.7'
+
+# If prior versions of your tile are installed and configured, their
+# property values will not be overwritten by new defaults provided
+# in this file. If that is your intent, you must do the overwriting
+# explicitly using JavaScript migration functions, like so:
+#
+migration: |
+  properties['properties']['.properties.org']['value'] = 'system';

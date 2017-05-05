@@ -6,42 +6,16 @@
 /* jshint newcap: false */
 /* global describe, before, it */
 
-var _ = require('underscore');
-var logule = require('logule');
 var should = require('should');
 var sinon = require('sinon');
 var cmdDeprovision = require('../../../../lib/services/azurerediscache/cmd-deprovision');
 var redisClient = require('../../../../lib/services/azurerediscache/client');
+var azure = require('../helpers').azure;
+var msRestRequest = require('../../../../lib/common/msRestRequest');
 
-var azure = {
-    environment: 'AzureCloud',
-    subscription_id: '743fxxxx-83xx-46xx-xx2d-xxxxb953952d',
-    tenant_id: '72xxxxbf-8xxx-xxxf-9xxb-2d7cxxxxdb47',
-    client_id: 'd8xxxx18-xx4a-4xx9-89xx-9be0bfecxxxx',
-    client_secret: '2/DzYYYYYYYYYYsAvXXXXXXXXXXQ0EL7WPxEXX115Go=',
-};
-
-var log = logule.init(module, 'RedisCache-Mocha');
-
-describe('RedisCache - Deprovision - PreConditions', function() {
-    var cp;
-        
-    before(function() {
-        var validParams = {
-            instance_id : 'b259c5e0-7442-46bc-970c-9912613077dd',
-            provisioning_result: '{\"id\":\"/subscriptions/743f6ed6-83a8-46f0-822d-ea93b953952d/resourceGroups/redisResourceGroup/providers/Microsoft.Cache/Redis/C0CacheNC\",\"name\":\"C0CacheNC\"}'
-        };
-        validParams.azure = azure;
-        cp = new cmdDeprovision(log, validParams);
-    });
-    
-    describe('Deprovision should succeed if ...', function() {
-        it('all validators succeed', function(done) {
-            (cp.allValidatorsSucceed()).should.equal(true);
-            done();        
-        });        
-    });
-});
+var mockingHelper = require('../mockingHelper');
+mockingHelper.backup();
+redisClient.initialize(azure);
 
 describe('RedisCache - Deprovision - Execution', function() {
     var validParams = {};
@@ -50,16 +24,23 @@ describe('RedisCache - Deprovision - Execution', function() {
     before(function() {
         validParams = {
             instance_id : 'b259c5e0-7442-46bc-970c-9912613077dd',
-            provisioning_result: '{\"id\":\"/subscriptions/743f6ed6-83a8-46f0-822d-ea93b953952d/resourceGroups/redisResourceGroup/providers/Microsoft.Cache/Redis/C0CacheNC\",\"name\":\"C0CacheNC\"}'
+            provisioning_result: {'resourceGroupName':'redisResourceGroup','name':'C0CacheNC'}
         };
         validParams.azure = azure;
-        cp = new cmdDeprovision(log, validParams);
+        cp = new cmdDeprovision(validParams);
+        
+        msRestRequest.DELETE = sinon.stub();
+        msRestRequest.DELETE.withArgs('https://management.azure.com//subscriptions/55555555-4444-3333-2222-111111111111/resourceGroups/redisResourceGroup/providers/Microsoft.Cache/Redis/C0CacheNC')
+          .yields(null, {statusCode: 200});
     });
-    
+
+    after(function() {
+        mockingHelper.restore();
+    });
+
     describe('Deprovision operation outcomes should be...', function() {
         it('should output err & result null', function(done) {
             
-            sinon.stub(redisClient, 'deprovision').yields(null, null);
             cp.deprovision(redisClient, function(err, result) {
                 should.not.exist(err);
                 should.not.exist(result);
